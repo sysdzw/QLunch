@@ -13,6 +13,35 @@ Begin VB.Form frmMain
    ScaleHeight     =   9075
    ScaleWidth      =   14520
    StartUpPosition =   2  '屏幕中心
+   Begin VB.CommandButton Command5 
+      Caption         =   "所在目录"
+      BeginProperty Font 
+         Name            =   "微软雅黑"
+         Size            =   10.5
+         Charset         =   134
+         Weight          =   400
+         Underline       =   0   'False
+         Italic          =   0   'False
+         Strikethrough   =   0   'False
+      EndProperty
+      Height          =   495
+      Left            =   4440
+      TabIndex        =   10
+      Top             =   120
+      Width           =   1095
+   End
+   Begin VB.TextBox Text1 
+      Appearance      =   0  'Flat
+      BackColor       =   &H80000018&
+      ForeColor       =   &H00000000&
+      Height          =   180
+      Left            =   11040
+      TabIndex        =   8
+      Text            =   "移动"
+      Top             =   4320
+      Visible         =   0   'False
+      Width           =   1215
+   End
    Begin VB.CommandButton Command4 
       Caption         =   "关于(&A)"
       BeginProperty Font 
@@ -67,10 +96,10 @@ Begin VB.Form frmMain
          Strikethrough   =   0   'False
       EndProperty
       Height          =   495
-      Left            =   4560
+      Left            =   5640
       TabIndex        =   2
       Top             =   120
-      Width           =   2055
+      Width           =   1095
    End
    Begin VB.CommandButton Command1 
       Caption         =   "删除选中项"
@@ -109,6 +138,18 @@ Begin VB.Form frmMain
       Width           =   10335
    End
    Begin VB.Label Label1 
+      AutoSize        =   -1  'True
+      BackStyle       =   0  'Transparent
+      Caption         =   "移动"
+      ForeColor       =   &H00404040&
+      Height          =   180
+      Left            =   11040
+      TabIndex        =   9
+      Top             =   3960
+      Visible         =   0   'False
+      Width           =   360
+   End
+   Begin VB.Label lblMsg 
       AutoSize        =   -1  'True
       BackStyle       =   0  'Transparent
       Caption         =   "提示：要添加的文件或文件夹可拖拽到下面列表区"
@@ -154,6 +195,8 @@ Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
 Option Explicit
 Dim strSetFile As String
+Dim intMoveStart%, intMoveEnd%
+Dim isMove As Boolean
 
 Private Sub Command1_Click()
     List2.RemoveItem (List1.ListIndex)
@@ -184,12 +227,22 @@ Private Sub Command4_Click()
     frmAbout.Show 1
 End Sub
 
+Private Sub Command5_Click()
+    Shell "explorer /select,""" & List2.List(List1.ListIndex) & """", 1
+End Sub
+
 Private Sub Form_Click()
     MsgBox getListAllItem(List2), , App.Title
 End Sub
 
 Private Sub Form_Load()
-    If App.PrevInstance Then End
+    Dim w As New clsWindow
+    If w.GetWindowByTitleEx("快速启动 v", 0, , , , DisplayedWindow).hWnd <> 0 Then
+        w.Show
+        w.Focus
+        End
+    End If
+
     Me.Caption = proName
     Dim i%, v, s$
     strSetFile = strAppPath & "设置.txt"
@@ -207,7 +260,8 @@ Private Sub Form_Resize()
 On Error GoTo Err1
     List1.Move 45, List1.Top, Me.ScaleWidth - 90, Me.ScaleHeight - lblTip.Height - List1.Top - 90
     lblTip.Move 45, Me.ScaleHeight - lblTip.Height - 45, Me.ScaleWidth - 90
-    Command4.Left = Me.ScaleWidth - Command4.Width - 45
+    Command4.Left = Me.ScaleWidth - Command4.Width - 90
+    Command4.Visible = Command4.Left - (lblMsg.Left + lblMsg.Width) > 45
 Err1:
 End Sub
 
@@ -216,11 +270,48 @@ Private Sub List1_Click()
 End Sub
 
 Private Sub List1_DblClick()
-    openFileDbl Me.hwnd, List2.List(List1.ListIndex)
+    openFileDbl Me.hWnd, List2.List(List1.ListIndex)
 End Sub
 
 Private Sub List1_KeyDown(KeyCode As Integer, Shift As Integer)
     If KeyCode = 13 Then Call List1_DblClick
+End Sub
+
+Private Sub List1_MouseDown(Button As Integer, Shift As Integer, X As Single, Y As Single)
+    intMoveStart = List1.ListIndex
+    List1.MousePointer = 5
+    
+    Label1.Caption = List1.List(List1.ListIndex)
+    Text1.Text = " " & List1.List(List1.ListIndex)
+    Text1.Width = Label1.Width + 200 '利用下Label1设置Text1的宽度
+    
+    Text1.Move X, Y - 150
+    Text1.Visible = True
+    isMove = True
+End Sub
+
+Private Sub List1_MouseMove(Button As Integer, Shift As Integer, X As Single, Y As Single)
+    If isMove Then Text1.Move X, Y
+
+    Static intSelectedIndex As Integer
+    If List1.ListIndex <> intSelectedIndex Then
+        intSelectedIndex = List1.ListIndex
+'        Me.Caption = List1.ListIndex & " " & Now
+    End If
+End Sub
+
+Private Sub List1_MouseUp(Button As Integer, Shift As Integer, X As Single, Y As Single)
+    isMove = False
+    Text1.Visible = False
+    
+    List1.MousePointer = 0
+    intMoveEnd = List1.ListIndex
+    If intMoveStart = intMoveEnd Then Exit Sub
+    List1.AddItem List1.List(intMoveStart), intMoveEnd
+    List2.AddItem List2.List(intMoveStart), intMoveEnd
+    List1.RemoveItem IIf(intMoveEnd > intMoveStart, intMoveStart, intMoveStart + 1)
+    List2.RemoveItem IIf(intMoveEnd > intMoveStart, intMoveStart, intMoveStart + 1)
+    List1.Selected(intMoveEnd) = True
 End Sub
 
 Private Sub List1_OLEDragDrop(Data As DataObject, Effect As Long, Button As Integer, Shift As Integer, X As Single, Y As Single)
